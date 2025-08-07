@@ -56,8 +56,8 @@ export class APCMiniMK2Manager extends MIDIManager {
      * フレームごとの更新処理を行うメソッド
      * MIDIコントローラーのLEDなどを更新する役割を担います。
      */
-    public update(): void {
-        this.midiOutputSend();
+    public update(index : number): void {
+        this.midiOutputSend(index);
     }
 
     /**
@@ -115,7 +115,7 @@ export class APCMiniMK2Manager extends MIDIManager {
     /**
      * MIDI出力を送信するメソッド
      */
-    private midiOutputSend(): void {
+    private midiOutputSend(index : number = 0): void {
         if (!this.midiSuccess) return;
 
         // フェーダーボタンの状態を送信
@@ -136,7 +136,7 @@ export class APCMiniMK2Manager extends MIDIManager {
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
                 const midiNote = col + (7 - row) * 8;
-                const state = this.gridRadioState[col] === row ? 0.2 : 0;
+                const state = this.gridRadioState[col] === row ? (index == col ? 0.9 : 1.0) : 0;
                 this.sendMessage([MIDI_STATUS.NOTE_ON, midiNote, Math.round(state * 127)]);
             }
         }

@@ -6,16 +6,20 @@ import { SceneManager } from './scene/sceneManager';
 let sceneManager: SceneManager;
 
 const sketch = (p: p5) => {
-  p.setup = () => {
-    p.createCanvas(p.windowWidth, p.windowHeight);
-    p.colorMode(p.HSB, 360, 255, 255);
 
-    // 🚨 ここでSceneManagerをインスタンス化
+  let img: p5.Image;
+
+  p.setup = async () => {
+    p.createCanvas(p.windowWidth, p.windowHeight);
+
+    img = await p.loadImage("./assets/apple.png");
+    img.resize(0, p.height * 0.8);
+
     sceneManager = new SceneManager(p);
   }
 
   p.draw = () => {
-    sceneManager.update();
+    sceneManager.update(img);
   }
 
   p.windowResized = () => {
