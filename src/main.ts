@@ -7,19 +7,15 @@ let sceneManager: SceneManager;
 
 const sketch = (p: p5) => {
 
-  let img: p5.Image;
-
   p.setup = async () => {
     p.createCanvas(p.windowWidth, p.windowHeight);
-
-    img = await p.loadImage("./assets/apple.png");
-    img.resize(0, p.height * 0.8);
+    p.noCursor();
 
     sceneManager = new SceneManager(p);
   }
 
   p.draw = () => {
-    sceneManager.update(img);
+    sceneManager.update();
   }
 
   p.windowResized = () => {
@@ -31,7 +27,6 @@ const sketch = (p: p5) => {
       p.fullscreen(true);
     }
     if (p.key === 'Enter') {
-      // 🚨 tapTempo機能の呼び出し
       sceneManager.tapTempo();
     }
   }

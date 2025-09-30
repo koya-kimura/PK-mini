@@ -1,71 +1,114 @@
+// src/managers/SceneManager.ts (デバッグ対応版)
+
 import p5 from 'p5'
 
-import { APCMiniMK2Manager } from '../midi/APCMiniMK2Manager';
+// APCMiniMK2Manager の代わりに APCMiniMK2Sequencer を使用
+import { APCMiniMK2Sequencer } from '../midi/APCMiniMK2Sequencer';
 import { BPMManager } from '../rhythm/BPMManager';
+import { SunnyMotion } from './sunnyMotion';
+import { CloudMotion } from './cloudMotion';
+import { SushiMotion } from './sushiMotion';
+import { WaveMotion } from './waveMotion';
+import { UmbrellaMotion } from './umbrellaMotion';
+import { ThunderMotion } from './thunderMotion';
 
 export class SceneManager {
-    private midiManager: APCMiniMK2Manager;
+    // クラス名を APCMiniMK2Sequencer に変更
+    private midiSequencer: APCMiniMK2Sequencer;
     private bpmManager: BPMManager;
+    private sunnyMotion: SunnyMotion;
+    private cloudMotion: CloudMotion;
+    private sushiMotion: SushiMotion;
+    private waveMotion: WaveMotion;
+    private umbrellaMotion: UmbrellaMotion;
+    private thunderMotion: ThunderMotion;
     private p: p5;
+
+    // 現在のステップ（0-7）を保持
+    private currentStep: number = 0;
 
     constructor(p: p5) {
         this.p = p;
-        this.midiManager = new APCMiniMK2Manager();
+        // Sequencer のインスタンス化
+        this.midiSequencer = new APCMiniMK2Sequencer();
         this.bpmManager = new BPMManager();
+        this.sunnyMotion = new SunnyMotion(p);
+        this.cloudMotion = new CloudMotion(p);
+        this.sushiMotion = new SushiMotion(p);
+        this.waveMotion = new WaveMotion(p);
+        this.umbrellaMotion = new UmbrellaMotion(p);
+        this.thunderMotion = new ThunderMotion(p);
     }
 
-    update(img: p5.Image): void {
-
+    /**
+     * 毎フレームの更新処理
+     */
+    update(): void {
         this.bpmManager.update();
-        this.midiManager.update(this.p.floor(this.bpmManager.getBeat()) % 8);
 
-        const speed = 0.5;
-        const t = this.p.map(this.p.abs(this.p.fract(this.bpmManager.getBeat() * speed) - 0.5), 0, 0.5, 1, 0);
-        const index = this.p.floor(this.bpmManager.getBeat() * speed) % 8;
+        this.currentStep = this.p.floor(this.bpmManager.getBeat()) % 8;
+        this.midiSequencer.update(this.currentStep);
 
-        const alpha = this.p.map(t, 0, 1, 255, 10);
-        this.p.background(0, alpha);
+        // this.midiSequencer.getSequenceValue(i, this.currentStep);
 
-        let x = 0;
-        let y = 0;
-        let scl = 1;
-        let angle = 0;
+        this.p.background(0);
 
-        if(this.midiManager.gridRadioState[index] == 0){
-            x = this.p.map(t, 0, 1, 0, this.p.width / 2);
-        }
-        else if(this.midiManager.gridRadioState[index] == 1){
-            x = this.p.map(t, 0, 1, 0, -this.p.width / 2);
-        }
-        else if(this.midiManager.gridRadioState[index] == 2){
-            y = this.p.map(t, 0, 1, 0, -this.p.height / 2);
-        }
-        else if(this.midiManager.gridRadioState[index] == 3){
-            y = this.p.map(t, 0, 1, 0, this.p.height / 2);
-        }
-        else if(this.midiManager.gridRadioState[index] == 4){
-            scl = this.p.map(t, 0, 1, 1, 2);
-        }
-        else if(this.midiManager.gridRadioState[index] == 5){
-            scl = this.p.map(t, 0, 1, 1, 0.5);
-        }
-        else if(this.midiManager.gridRadioState[index] == 6){
-            angle = this.p.map(t, 0, 1, 0, this.p.TAU);
-        }
-        else if(this.midiManager.gridRadioState[index] == 7){
-            angle = this.p.map(t, 0, 1, 0, -this.p.TAU);
-        }
+        this.sunnyMotion.update(1, this.bpmManager.getBeat());
+        this.waveMotion.update(1, this.bpmManager.getBeat());
+        this.cloudMotion.update(1, this.bpmManager.getBeat());
+        this.umbrellaMotion.update(1, this.bpmManager.getBeat());
+        this.sushiMotion.update(1, this.bpmManager.getBeat());
+        this.thunderMotion.update(1, this.bpmManager.getBeat());
 
-        this.p.push();
-        this.p.translate(this.p.width / 2 + x, this.p.height / 2 + y);
-        this.p.rotate(angle);
-        this.p.scale(scl);
-        this.p.imageMode(this.p.CENTER);
-        this.p.image(img, 0, 0);
-        this.p.pop();
+        // this.sunnyMotion.update(this.midiSequencer.getSequenceValue(0, this.currentStep), this.bpmManager.getBeat());
+        // this.waveMotion.update(this.midiSequencer.getSequenceValue(3, this.currentStep), this.bpmManager.getBeat());
+        // this.cloudMotion.update(this.midiSequencer.getSequenceValue(1, this.currentStep), this.bpmManager.getBeat());
+        // this.umbrellaMotion.update(this.midiSequencer.getSequenceValue(4, this.currentStep), this.bpmManager.getBeat());
+        // this.sushiMotion.update(this.midiSequencer.getSequenceValue(2, this.currentStep), this.bpmManager.getBeat());
+        // this.thunderMotion.update(this.midiSequencer.getSequenceValue(5, this.currentStep), this.bpmManager.getBeat());
     }
 
+    /**
+     * テンポ設定
+     */
     tapTempo(): void {
         this.bpmManager.tapTempo();
+    }
+
+    /**
+     * デバッグ情報を画面に表示する
+     * @param sequenceValue update()で取得した現在のシーケンス値
+     */
+    private drawDebugInfo(sequenceValue: number): void {
+        const p = this.p;
+        p.push();
+        p.textAlign(p.LEFT, p.TOP);
+        p.textSize(16);
+        p.fill(255);
+        p.noStroke();
+
+        let debugText = "--- MIDI / SEQUENCER DEBUG ---\n";
+        debugText += `MIDI Connected: ${this.midiSequencer.midiSuccess ? "✅ YES" : "❌ NO"}\n`;
+        debugText += `BPM: ${this.p.nf(this.bpmManager.getBPM(), 0, 2)}\n`;
+        debugText += `Current Step: ${this.currentStep + 1} / 8\n`;
+        debugText += `Selected Pattern: ${this.midiSequencer.sideButtonRadioNum + 1} / 8\n`;
+        debugText += `Sequence Value (0-7): ${sequenceValue}\n`;
+        debugText += "------------------------------\n";
+
+        // 全フェーダーの値（0-8）を表示
+        debugText += "Faders:\n";
+        this.midiSequencer.faderValues.forEach((val, i) => {
+            debugText += ` Fader ${i + 1}: ${p.nf(val, 0, 2)}${i === 8 ? " (Master)" : ""}\n`;
+        });
+
+        // 全8パターンの現在のステップの値（デバッグ用）
+        debugText += "\nAll Pattern Values (Current Step):\n";
+        for (let i = 0; i < 8; i++) {
+            const val = this.midiSequencer.getSequenceValue(i, this.currentStep);
+            debugText += ` P${i + 1}: ${val}${i < 7 ? " | " : ""}`;
+        }
+
+        p.text(debugText, 10, 10);
+        p.pop();
     }
 }
