@@ -11,18 +11,19 @@ export class ThunderMotion { // クラス名をThunderMotionに変更
 
     constructor(p: p5) {
         this.p = p;
-        this.thunders = []; // thunderArray -> thunders
+        this.thunders = [];
         this.lastBeatFloor = -1;
     }
 
     /**
      * 動きの更新と描画を行います。
+     * @param tex 描画書き込み先の p5.Graphics インスタンス。
      * @param sequenceValue シーケンスの値。0より大きければ新しい雷を生成する可能性があります。
      * @param currentBeat 現在のビート値。
      */
-    update(sequenceValue: number, currentBeat: number): void {
+    update(tex: p5.Graphics, sequenceValue: number, currentBeat: number): void {
         const p = this.p;
-        const shouldGenerateNewThunder = sequenceValue > 0; // shouldGenerateNewCloud -> shouldGenerateNewThunder
+        const shouldGenerateNewThunder = sequenceValue > 0;
         const beatFloor = p.floor(currentBeat);
 
         // ビートが変化した & 生成フラグが立っている場合のみ新しい雷を生成
@@ -30,6 +31,7 @@ export class ThunderMotion { // クラス名をThunderMotionに変更
             // 生成する雷の数は1から3の間 (ランダム)
             const count = p.random(1, 3);
             for (let i = 0; i < count; i++) {
+                // Thunder コンストラクタ内では p.width/height を使用しているため、ここでは tex は不要
                 this.thunders.push(new Thunder(p, currentBeat));
             }
         }
@@ -45,19 +47,17 @@ export class ThunderMotion { // クラス名をThunderMotionに変更
         }
         this.thunders = nextThunders; // 配列を更新
 
-        // 描画
-        p.push();
+        // 描画 (tex に描画するため、Thunder の draw に tex を渡す)
         for (const thunder of this.thunders) {
-            thunder.draw();
+            thunder.draw(tex);
         }
-        p.pop();
 
         // 次のフレームのために現在のビートの整数部分を保持
         this.lastBeatFloor = beatFloor;
     }
 }
 
-// ---
+// ---------------------------------------------------------------------------------------------------------------------
 
 /**
  * 個々の雷（サンダー）のオブジェクトを管理するクラス。
@@ -82,6 +82,7 @@ export class Thunder { // クラス名をThunderに変更
 
     constructor(p: p5, startBeat: number) {
         this.p = p;
+        // p.width, p.height を使用して初期位置とサイズを決定
         this.startX = p.random(p.width * 0.1, p.width * 0.9);
         this.startY = - p.random(p.height * 0.05, p.height * 0.1); // 画面上部から開始
         this.endY = p.height * p.random(0.5, 0.9); // 画面中央より下に到達
@@ -101,16 +102,15 @@ export class Thunder { // クラス名をThunderに変更
         const p = this.p;
         const timeElapsed = currentBeat - this.startBeat;
 
-        // 1. 落下進行度の計算 (DURATION_DROP=0.2までで0から1へ)
+        // 1. 落下進行度の計算 (p.map, p.min は p を使用)
         this.currentYProgress = p.map(p.min(timeElapsed, this.DURATION_DROP), 0, this.DURATION_DROP, 0, 1);
 
         // 2. 透明度の計算
-        // DURATION_DROP以降(0.2から0.5)で255から0へ急激にフェードアウト
         const fadeStartTime = this.DURATION_DROP;
         const fadeDuration = this.DURATION_FADE;
 
         if (timeElapsed >= fadeStartTime) {
-            // フェードアウトの進行度を計算
+            // フェードアウトの進行度を計算 (p.map, p.min は p を使用)
             const fadeTimeElapsed = timeElapsed - fadeStartTime;
             this.alpha = p.map(p.min(fadeTimeElapsed, fadeDuration), 0, fadeDuration, 255, 0);
         } else {
@@ -126,55 +126,61 @@ export class Thunder { // クラス名をThunderに変更
 
     /**
      * 雷を描画します。
+     * @param tex 描画書き込み先の p5.Graphics インスタンス。
      */
-    draw(): void {
+    draw(tex: p5.Graphics): void {
         const p = this.p;
         if (!this.isAlive) return;
 
-        p.push();
-        p.stroke(255, 255, 0, this.alpha); // 鮮やかな黄色と透明度
-        p.strokeWeight(this.finalStrokeWeight);
-        p.strokeJoin(p.MITER); // 尖った角を設定
-        p.strokeCap(p.SQUARE);
-        p.noFill();
+        tex.push();
+        // 描画設定を tex に適用
+        tex.stroke(255, 255, 0, this.alpha); // 鮮やかな黄色と透明度
+        tex.strokeWeight(this.finalStrokeWeight);
+        tex.strokeJoin(p.MITER); // 尖った角を設定 (p.MITER は p を使用)
+        tex.strokeCap(p.SQUARE);
+        tex.noFill();
 
-        this.drawLightning(this.startX, this.startY, this.endY);
-        p.pop();
+        // 描画ヘルパー関数にも tex を渡す
+        this.drawLightning(tex, this.startX, this.startY, this.endY);
+        tex.pop();
     }
 
     /**
      * 雷のギザギザした形状をランダムウォークで描画します。
+     * @param tex 描画書き込み先の p5.Graphics インスタンス。
      */
-    private drawLightning(xStart: number, yStart: number, yEnd: number): void {
+    private drawLightning(tex: p5.Graphics, xStart: number, yStart: number, yEnd: number): void {
         const p = this.p;
 
         p.randomSeed(this.seed); // シード固定で毎回同じ形状の雷を描画
 
-        // 雷が到達すべき現在のY位置
+        // 雷が到達すべき現在のY位置 (p.lerp は p を使用)
         const currentReachY = p.lerp(yStart, yEnd, this.currentYProgress);
 
         // --- 描画ロジック ---
-        p.beginShape();
+        tex.beginShape();
 
         let currentX = xStart;
         let currentY = yStart;
 
         // 雷の横方向の揺れ幅
         const zigZagRange = this.finalStrokeWeight * 10;
-        // Y方向のステップ
-        const yStep = p.height * 0.03;
+        // Y方向のステップ (p.height を p.p.height/tex.height とせず、コンストラクタで使われた p.height に基づく固定値とする)
+        // ただし、drawLightning内では p.height を使えないため、p.p.height と p.constrain に置き換える
+        const yStep = this.p.height * 0.03;
 
-        p.vertex(currentX, currentY); // 開始点
+        tex.vertex(currentX, currentY); // 開始点
 
         // Y軸の現在到達点までギザギザな線を描画
         while (currentY < currentReachY) {
             // Y座標をランダムなステップで進行
             currentY += yStep;
 
-            // X座標をランダムなジグザグで動かす
+            // X座標をランダムなジグザグで動かす (p.random は p を使用)
             currentX += p.random(-zigZagRange, zigZagRange);
 
-            // X座標が画面外に出ないようにクランプ
+            // X座標が画面外に出ないようにクランプ (p.constrain は p を使用)
+            // ここでの画面幅は、コンストラクタで p.width を使用して初期位置が設定されているため、p.width を使用するのが適切
             currentX = p.constrain(currentX, 0, p.width);
 
             // currentYがcurrentReachYを超えないように調整
@@ -182,9 +188,9 @@ export class Thunder { // クラス名をThunderに変更
                 currentY = currentReachY;
             }
 
-            p.vertex(currentX, currentY);
+            tex.vertex(currentX, currentY);
         }
 
-        p.endShape();
+        tex.endShape();
     }
 }

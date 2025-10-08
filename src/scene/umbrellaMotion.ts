@@ -17,10 +17,11 @@ export class UmbrellaMotion {
 
     /**
      * 動きの更新と描画を行います。
+     * @param tex 描画書き込み先の p5.Graphics インスタンス。
      * @param sequenceValue シーケンスの値。0より大きければ新しい傘を生成する可能性があります。
      * @param currentBeat 現在のビート値。
      */
-    update(sequenceValue: number, currentBeat: number): void {
+    update(tex: p5.Graphics, sequenceValue: number, currentBeat: number): void {
         const p = this.p;
         const shouldGenerateNewUmbrella = sequenceValue > 0;
         const beatFloor = p.floor(currentBeat); // 現在のビートの整数部分
@@ -45,17 +46,17 @@ export class UmbrellaMotion {
         }
         this.umbrellas = nextUmbrellas; // 配列を更新
 
-        // 描画
-        p.push();
+        // 描画 (tex に描画するため、Umbrella の draw に tex を渡す)
         for (const umbrella of this.umbrellas) {
-            umbrella.draw();
+            umbrella.draw(tex);
         }
-        p.pop();
 
         // 次のフレームのために現在のビートの整数部分を保持
         this.lastBeatFloor = beatFloor;
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
 
 /**
  * 個々の傘のオブジェクトを管理するクラス。
@@ -102,17 +103,17 @@ export class Umbrella {
         const p = this.p;
         const timeElapsed = currentBeat - this.startBeat;
 
-        // 1. 透明度の計算: DURATION_TOTALまでで255から0へ。p.pow(..., 3)で終盤に急激にフェードアウト
+        // 1. 透明度の計算
         const alphaTimeNorm = p.map(p.min(timeElapsed, this.DURATION_TOTAL), 0, this.DURATION_TOTAL, 0, 1);
         this.alpha = p.map(p.pow(alphaTimeNorm, 3), 0, 1, 255, 0);
 
-        // 2. スケールの計算: DURATION_APPEARANCEまでで1から1.2にスケールアップ
+        // 2. スケールの計算
         this.scaleFactor = p.map(p.min(timeElapsed, this.DURATION_APPEARANCE), 0, this.DURATION_APPEARANCE, 1, 1.2);
 
-        // 3. 描画セグメント数の計算: DURATION_SEGMENT_DRAWまでで0からsegmentCountまで増加
+        // 3. 描画セグメント数の計算
         this.drawnSegments = p.map(p.min(timeElapsed, this.DURATION_SEGMENT_DRAW), 0, this.DURATION_SEGMENT_DRAW, 0, this.segmentCount);
 
-        // 寿命チェック: 透明度が0以下になったら生存フラグをfalseにする
+        // 寿命チェック
         if (this.alpha <= 0) {
             this.isAlive = false;
         }
@@ -120,30 +121,34 @@ export class Umbrella {
 
     /**
      * 傘を描画します。
+     * @param tex 描画書き込み先の p5.Graphics インスタンス。
      */
-    draw(): void {
+    draw(tex: p5.Graphics): void {
         const p = this.p;
         if (!this.isAlive) return;
 
-        p.push();
+        tex.push();
         // fill(255, alpha) は drawUmbrella 内で処理する方が、線や他の要素にも反映しやすいが、
         // オリジナルコードの動作を維持するため、ここでは透明度のみの設定とする
-        p.fill(255, this.alpha);
-        this.drawUmbrella(this.positionX, this.positionY, this.radius);
-        p.pop();
+        // tex.fill() は p.color(255, this.alpha) を引数に渡す必要あり
+        tex.fill(p.color(255, this.alpha));
+        // 描画ヘルパー関数にも tex を渡す
+        this.drawUmbrella(tex, this.positionX, this.positionY, this.radius);
+        tex.pop();
     }
 
     /**
      * 傘の形状を個々のセグメントとして描画します。
+     * @param tex 描画書き込み先の p5.Graphics インスタンス。
      */
-    private drawUmbrella(x: number, y: number, r: number): void {
+    private drawUmbrella(tex: p5.Graphics, x: number, y: number, r: number): void {
         const p = this.p;
 
-        p.push();
+        tex.push();
 
-        p.translate(x, y);
-        p.rotate(this.angle);
-        p.scale(this.scaleFactor); // スケール適用
+        tex.translate(x, y);
+        tex.rotate(this.angle);
+        tex.scale(this.scaleFactor); // スケール適用
 
         const totalSegments = this.segmentCount;
         const segmentAngle = p.TAU / totalSegments;
@@ -160,22 +165,28 @@ export class Umbrella {
 
             const currentAngle = p.TAU * i / totalSegments;
             const nextAngle = currentAngle + segmentAngle;
+            // p.color() は p を使用
             const umbrellaColor = i % 2 == 0 ? p.color(100, this.alpha) : p.color(20, 30, 20, this.alpha);
 
             // 1. 傘の赤いセグメント
-            p.stroke(10, this.alpha);             // 縁取りの色と透明度
-            p.strokeCap(p.SQUARE);
-            p.fill(umbrellaColor);
-            p.strokeWeight(strokeW);
-            p.arc(0, 0, r * 2, r * 2, currentAngle, nextAngle);
+            // p.color() は p を使用
+            tex.stroke(p.color(10, this.alpha));             // 縁取りの色と透明度
+            tex.strokeCap(p.SQUARE);
+            tex.fill(umbrellaColor);
+            tex.strokeWeight(strokeW);
+            // arc は tex のメソッドを使用
+            tex.arc(0, 0, r * 2, r * 2, currentAngle, nextAngle);
 
             // 2. 骨組みの線 (中心から外側へ)
-            p.line(0, 0, p.cos(currentAngle) * outerLineLength, p.sin(currentAngle) * outerLineLength);
+            // line は tex のメソッドを使用
+            tex.line(0, 0, p.cos(currentAngle) * outerLineLength, p.sin(currentAngle) * outerLineLength);
 
             // 3. 中心部の黒い円
-            p.fill(0, 0, 0, this.alpha);
-            p.arc(0, 0, centerCircleRadius * 2, centerCircleRadius * 2, currentAngle, nextAngle);
+            // p.color() は p を使用
+            tex.fill(p.color(0, 0, 0, this.alpha));
+            // arc は tex のメソッドを使用
+            tex.arc(0, 0, centerCircleRadius * 2, centerCircleRadius * 2, currentAngle, nextAngle);
         }
-        p.pop();
+        tex.pop();
     }
 }

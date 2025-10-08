@@ -14,11 +14,12 @@ export class SunnyMotion {
 
     /**
      * 模様の更新と描画を行います。
+     * @param tex 描画書き込み先の p5.Graphics インスタンス。
      * @param sequenceValue シーケンスの値。0より大きければ描画します。
      * @param beat 現在のビート値 (描画自体には使用されていません)。
      */
-    update(sequenceValue: number, beat: number): void {
-        const p = this.p;
+    update(tex: p5.Graphics, sequenceValue: number, beat: number): void {
+        const p = this.p; // p5 環境に依存する関数（map, colorなど）のために保持
         const shouldShow = sequenceValue > 0;
 
         // sequenceValue が 0 以下の場合、描画をスキップ
@@ -29,26 +30,35 @@ export class SunnyMotion {
         // 描画パラメータの定義
         // p.frameCount * 0.002 は回転速度
         const rotationOffset = -p.frameCount * 0.002;
-        const drawingRadius = p.width * 1.5; // 画面幅よりも大きな半径で画面全体を覆う
+        // tex の幅よりも大きな半径で tex 全体を覆う
+        const drawingRadius = tex.width * 1.5;
 
-        p.push();
-        // 描画の中心を画面下辺の中央に設定
-        p.translate(p.width / 2, p.height);
+        // tex に描画を開始
+        tex.push();
+        // 描画の中心を tex の下辺の中央に設定
+        tex.translate(tex.width / 2, tex.height);
+        // 線の描画を無効にする
+        tex.noStroke();
 
         for (let i = 0; i < this.SEGMENT_COUNT; i++) {
             // 各セグメントの開始角度と終了角度を計算
+            // TAU は p5.js の定数なので p を使用
             const startAngle = p.map(i, 0, this.SEGMENT_COUNT, 0, p.TAU) + rotationOffset;
             const endAngle = p.map((i + 1), 0, this.SEGMENT_COUNT, 0, p.TAU) + rotationOffset;
 
             // 交互に色を設定 (5: 濃いグレー, 10, 10, 25: 濃い青)
-            const segmentColor = i % 2 === 0
-                ? p.color(5)
-                : p.color(10, 10, 25);
+            // p.color() も p を使用
+            const segmentColor = p.color(10, 10, 25);
 
-            p.fill(segmentColor);
+            // tex に色を設定
+            tex.fill(segmentColor);
+
             // 扇形を描画
-            p.arc(0, 0, drawingRadius * 2, drawingRadius * 2, startAngle, endAngle);
+            if(i % 2 === 0){
+                tex.arc(0, 0, drawingRadius * 2, drawingRadius * 2, startAngle, endAngle);
+            }
         }
-        p.pop();
+        tex.pop();
+        // tex への描画を終了
     }
 }

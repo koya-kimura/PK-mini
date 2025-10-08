@@ -106,6 +106,10 @@ export class APCMiniMK2Sequencer extends APCMiniMK2Manager {
         }
     }
 
+    public getFaderValues(): number[] {
+        return this.faderValues;
+    }
+
     // --- MIDI出力 (LED制御) の拡張 ---
 
     /**
