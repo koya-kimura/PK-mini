@@ -1,77 +1,130 @@
-// src/managers/SceneManager.ts (デバッグ対応版)
+// --------------------------------------------------------------
+// SceneManager
+// APC Mini MK2 からの入力を受け取り、各シーンモーションを束ねる中枢クラス。
+// drawTexture / uiTexture の 2 枚のバッファを更新し、ポストプロセス側へ渡す。
+// --------------------------------------------------------------
 
 import p5 from 'p5'
 
 // APCMiniMK2Manager の代わりに APCMiniMK2Sequencer を使用
 import { APCMiniMK2Sequencer } from '../midi/APCMiniMK2Sequencer';
 import { BPMManager } from '../rhythm/BPMManager';
+import { ColorPalette } from '../utils/colorPalette';
+import { UmbrellaMotion } from './umbrellaMotion';
 import { SunnyMotion } from './sunnyMotion';
+import { WaveMotion } from './waveMotion';
 import { CloudMotion } from './cloudMotion';
 import { SushiMotion } from './sushiMotion';
-import { WaveMotion } from './waveMotion';
-import { UmbrellaMotion } from './umbrellaMotion';
 import { ThunderMotion } from './thunderMotion';
+import { SushiTypographyMotion } from './sushiTypographyMotion';
+import { FlowTypographyMotion } from './flowTypographyMotion';
+import { UIManager } from '../ui/UIManager';
+import { UI_None } from '../ui/UI_None';
+import { UI_StatusOverlay } from '../ui/visualSequenceOverlay';
+import { UI_GridOverlay } from '../ui/UI_GridOverlay';
+import { UI_Pattern3 } from '../ui/UI_CameraFrameOverlay';
+import { UI_FoWxFlowOverlay } from '../ui/UI_FoWxFlowOverlay';
 
 export class SceneManager {
     // クラス名を APCMiniMK2Sequencer に変更
     public midiSequencer: APCMiniMK2Sequencer;
     private bpmManager: BPMManager;
-    private sunnyMotion: SunnyMotion;
-    private cloudMotion: CloudMotion;
-    private sushiMotion: SushiMotion;
-    private waveMotion: WaveMotion;
-    private umbrellaMotion: UmbrellaMotion;
-    private thunderMotion: ThunderMotion;
     private p: p5;
     private drawTexture: p5.Graphics;
     private uiTexture: p5.Graphics;
+    private uiManager: UIManager;
 
     // 現在のステップ（0-7）を保持
     private currentStep: number = 0;
+    
+    // フェーダー8の前回の状態を保持（シーケンスクリア処理用）
+    private prevFader8Value: number = 0;
+
+    private umbrellaMotion: UmbrellaMotion;
+    private sunnyMotion: SunnyMotion;
+    private waveMotion: WaveMotion;
+    private cloudMotion: CloudMotion;
+    private sushiMotion: SushiMotion;
+    private thunderMotion: ThunderMotion;
+    private sushiTypographyMotion: SushiTypographyMotion;
+    private flowTypographyMotion: FlowTypographyMotion;
 
     constructor(p: p5) {
+        // 描画先のグラフィクスバッファと、同期情報を扱うマネージャを初期化。
         this.p = p;
         this.drawTexture = p.createGraphics(p.width, p.height);
         this.uiTexture = p.createGraphics(p.width, p.height);
         // Sequencer のインスタンス化
         this.midiSequencer = new APCMiniMK2Sequencer();
         this.bpmManager = new BPMManager();
+        this.umbrellaMotion = new UmbrellaMotion(this.p, ColorPalette.scenes.umbrella);
         this.sunnyMotion = new SunnyMotion(p);
+        this.waveMotion = new WaveMotion(p);
         this.cloudMotion = new CloudMotion(p);
         this.sushiMotion = new SushiMotion(p);
-        this.waveMotion = new WaveMotion(p);
-        this.umbrellaMotion = new UmbrellaMotion(p);
         this.thunderMotion = new ThunderMotion(p);
+        this.sushiTypographyMotion = new SushiTypographyMotion(p);
+        this.flowTypographyMotion = new FlowTypographyMotion(p);
+
+        this.uiManager = new UIManager(this.midiSequencer, this.bpmManager);
+        this.uiManager.setup(this.p, [
+            new UI_None(),
+            new UI_StatusOverlay(p),
+            new UI_GridOverlay(p),
+            new UI_Pattern3(),
+            new UI_FoWxFlowOverlay(p),
+        ]);
+        const uiTexture = this.uiManager.getUITexture();
+        if (uiTexture) {
+            this.uiTexture = uiTexture;
+        }
     }
 
     /**
      * 毎フレームの更新処理
      */
     update(): void {
+        // BPM を進めて現在のビート値を算出。
         this.bpmManager.update();
 
         this.currentStep = this.p.floor(this.bpmManager.getBeat()) % 8;
         this.midiSequencer.update(this.currentStep);
 
-        this.drawTexture.background(0, this.p.map(this.midiSequencer.getFaderValues()[8], 0, 1, 255, 0));
+        // フェーダー8の監視とシーケンスクリア処理
+        const currentFader8Value = this.midiSequencer.getFaderValues()[8];
+        if (currentFader8Value >= 1 && this.prevFader8Value < 1) {
+            // フェーダー8が1になった瞬間に現在のパターンをクリア
+            this.midiSequencer.clearCurrentPattern();
+        }
+        this.prevFader8Value = currentFader8Value;
 
-        // TODO:以下のオブジェクトに関してbackgroundの透明度が適用されるように修正
-        this.sunnyMotion.update(this.drawTexture, 1, this.bpmManager.getBeat());
-        this.waveMotion.update(this.drawTexture, 1, this.bpmManager.getBeat());
-        this.cloudMotion.update(this.drawTexture, 1, this.bpmManager.getBeat());
-        this.umbrellaMotion.update(this.drawTexture, 1, this.bpmManager.getBeat());
-        this.sushiMotion.update(this.drawTexture, 1, this.bpmManager.getBeat());
-        this.thunderMotion.update(this.drawTexture, 1, this.bpmManager.getBeat());
+        // 背景は常に不透明な黒を設定。
+        this.drawTexture.background(0);
 
-        // this.sunnyMotion.update(this.midiSequencer.getSequenceValue(0, this.currentStep), this.bpmManager.getBeat());
-        // this.waveMotion.update(this.midiSequencer.getSequenceValue(3, this.currentStep), this.bpmManager.getBeat());
-        // this.cloudMotion.update(this.midiSequencer.getSequenceValue(1, this.currentStep), this.bpmManager.getBeat());
-        // this.umbrellaMotion.update(this.midiSequencer.getSequenceValue(4, this.currentStep), this.bpmManager.getBeat());
-        // this.sushiMotion.update(this.midiSequencer.getSequenceValue(2, this.currentStep), this.bpmManager.getBeat());
-        // this.thunderMotion.update(this.midiSequencer.getSequenceValue(5, this.currentStep), this.bpmManager.getBeat());
+        this.drawTexture.push();
 
-        this.uiTexture.clear();
-        this.drawDebugInfo(this.midiSequencer.getSequenceValue(this.midiSequencer.sideButtonRadioNum, this.currentStep));
+        // main
+        // MIDI の行列 (行=シーン, 列=ステップ) から現在のステップ値を取り出して各モーションに引き渡す。
+        this.sunnyMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(0, this.currentStep), this.bpmManager.getBeat());
+        this.waveMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(3, this.currentStep), this.bpmManager.getBeat());
+        this.cloudMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(1, this.currentStep), this.bpmManager.getBeat());
+        this.umbrellaMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(4, this.currentStep), this.bpmManager.getBeat());
+        this.sushiMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(2, this.currentStep), this.bpmManager.getBeat());
+        this.thunderMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(5, this.currentStep), this.bpmManager.getBeat());
+        this.sushiTypographyMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(6, this.currentStep), this.bpmManager.getBeat());
+        this.flowTypographyMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(7, this.currentStep), this.bpmManager.getBeat());
+
+        // debug
+        // this.sunnyMotion.update(this.drawTexture, this.p.floor(this.bpmManager.getBeat() / 4) % 8, this.bpmManager.getBeat());
+        // this.waveMotion.update(this.drawTexture, this.p.floor(this.bpmManager.getBeat() / 4) % 8, this.bpmManager.getBeat());
+        // this.cloudMotion.update(this.drawTexture, this.p.floor(this.bpmManager.getBeat() / 4) % 8, this.bpmManager.getBeat());
+        // this.umbrellaMotion.update(this.drawTexture,this.p.floor(this.bpmManager.getBeat() / 4) % 8, this.bpmManager.getBeat());
+        // this.sushiMotion.update(this.drawTexture, this.p.floor(this.bpmManager.getBeat() / 4) % 8, this.bpmManager.getBeat());
+        // this.thunderMotion.update(this.drawTexture, this.p.floor(this.bpmManager.getBeat() / 4) % 8, this.bpmManager.getBeat());
+
+        this.drawTexture.pop();
+
+        this.uiManager.draw(this.p, this.bpmManager.getBeat(), this.currentStep);
     }
 
     getDrawTexture(): p5.Graphics {
@@ -89,27 +142,36 @@ export class SceneManager {
         this.bpmManager.tapTempo();
     }
 
-    /**
-     * デバッグ情報を画面に表示する
-     * @param sequenceValue update()で取得した現在のシーケンス値
-     */
-    private drawDebugInfo(sequenceValue: number): void {
-        const p = this.p;
+    getBeat(): number {
+        return this.bpmManager.getBeat();
+    }
 
-        this.uiTexture.push();
-        this.uiTexture.fill(255);
-        this.uiTexture.textSize(16);
-        this.uiTexture.textAlign(p.LEFT, p.TOP);
-        this.uiTexture.text(`BPM: ${this.bpmManager.getBPM().toFixed(2)}`, 10, 10);
-        this.uiTexture.text(`Beat: ${this.bpmManager.getBeat().toFixed(2)}`, 10, 30);
-        this.uiTexture.text(`Step: ${this.currentStep}`, 10, 50);
-        this.uiTexture.text(`Sequence Value: ${sequenceValue.toFixed(2)}`, 10, 70);
-        this.uiTexture.text(`Faders: [${this.midiSequencer.getFaderValues().map(v => v.toFixed(2)).join(', ')}]`, 10, 90);
-        this.uiTexture.pop();
+    getBPM(): number {
+        return this.bpmManager.getBPM();
+    }
+
+    getCurrentStep(): number {
+        return this.currentStep;
+    }
+
+    getCurrentPatternIndex(): number {
+        return this.midiSequencer.sideButtonRadioNum ?? 0;
+    }
+
+    getCurrentSequenceValue(patternIndex = this.getCurrentPatternIndex()): number {
+        return this.midiSequencer.getSequenceValue(patternIndex, this.currentStep);
     }
 
     resize(): void {
         this.drawTexture.resizeCanvas(this.p.width, this.p.height);
-        this.uiTexture.resizeCanvas(this.p.width, this.p.height);
+        this.uiManager.resize(this.p);
+        const uiTexture = this.uiManager.getUITexture();
+        if (uiTexture) {
+            this.uiTexture = uiTexture;
+        }
+    }
+
+    selectUI(index: number): void {
+        this.uiManager.selectUI(index);
     }
 }

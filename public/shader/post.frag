@@ -3,13 +3,17 @@ precision mediump float;
 varying vec2 vTexCoord;
 
 uniform float u_time;
+uniform vec2 u_resolution;
 uniform sampler2D u_tex;
 uniform sampler2D u_uitex;
 uniform float u_invert;
 uniform float u_mosaic;
 uniform float u_noise;
 uniform float u_tile;
+uniform float u_glitch;
 uniform float u_monochrome;
+uniform float u_zoom;
+uniform float u_blockRotate;
 
 float PI = 3.14159265358979;
 
@@ -59,7 +63,47 @@ void main(void) {
         uv = fract(uv*n);
     }
 
-    vec4 drawcol = texture2D(u_tex, uv);
+    float zoomLevel = clamp(u_zoom, 0.0, 1.0);
+    float zoomFactor = mix(1.0, 2.5, zoomLevel);
+    vec2 zoomCenter = vec2(0.5);
+    vec2 sampleUV = (uv - zoomCenter) / zoomFactor + zoomCenter;
+    sampleUV = clamp(sampleUV, vec2(0.0), vec2(1.0));
+
+    float blockRotateLevel = clamp(u_blockRotate, 0.0, 1.0);
+    if(blockRotateLevel > 0.0){
+        vec2 gridSize = vec2(16.0, 9.0);
+        vec2 blockIndex = floor(sampleUV * gridSize);
+        vec2 localCoord = fract(sampleUV * gridSize);
+        vec2 centered = localCoord - 0.5;
+        float angle = blockRotateLevel * (PI * 0.5);
+        float c = cos(angle);
+        float s = sin(angle);
+        vec2 rotated = vec2(
+            centered.x * c - centered.y * s,
+            centered.x * s + centered.y * c
+        );
+        vec2 newLocal = clamp(rotated + 0.5, 0.0, 1.0);
+        sampleUV = (blockIndex + newLocal) / gridSize;
+        sampleUV = clamp(sampleUV, vec2(0.0), vec2(1.0));
+    }
+    float glitchLevel = clamp(u_glitch, 0.0, 1.0);
+    float glitchFlag = 0.0;
+    float framePhase = floor(u_time * 60.0);
+
+    if(glitchLevel > 0.0){
+        // グリッチエフェクトは無効化。座標は変更しない。
+    }
+
+    vec4 drawcol = texture2D(u_tex, sampleUV);
+
+    if(glitchFlag > 0.5){
+        float chromaAmount = (0.02 + 0.05 * glitchLevel);
+        vec3 shifted;
+        shifted.r = texture2D(u_tex, fract(sampleUV + vec2(chromaAmount, 0.0))).r;
+        shifted.g = drawcol.g;
+        shifted.b = texture2D(u_tex, fract(sampleUV - vec2(chromaAmount, 0.0))).b;
+        drawcol.rgb = mix(drawcol.rgb, shifted, 0.85);
+    }
 
     if(u_invert == 1.0){
         drawcol.rgb = vec3(1.0) - drawcol.rgb;

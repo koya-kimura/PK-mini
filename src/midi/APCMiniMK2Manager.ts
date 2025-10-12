@@ -1,3 +1,9 @@
+// --------------------------------------------------------------
+// APCMiniMK2Manager
+// APC Mini MK2 の生 MIDI 入力を監視し、フェーダーやボタン状態を標準化する基底クラス。
+// LED などの出力処理は派生クラス (Sequencer) に委ねる。
+// --------------------------------------------------------------
+
 import { MIDIManager } from "./midiManager";
 
 // マジックナンバーを定数として定義
@@ -28,14 +34,17 @@ export class APCMiniMK2Manager extends MIDIManager {
     public faderValues: number[];
     private faderValuesPrev: number[];
     public faderButtonToggleState: number[];
+    private faderRandomModeActive: boolean[];
     public sideButtonToggleState: number[];
     public sideButtonRadioNum: number;
+    private readonly FADER_RANDOM_TRIGGER_PROB = 0.05;
 
     constructor() {
         super();
-        this.faderValues = new Array(9).fill(0);
-        this.faderValuesPrev = new Array(9).fill(1);
+    this.faderValues = new Array(9).fill(0);
+    this.faderValuesPrev = new Array(9).fill(0);
         this.faderButtonToggleState = new Array(9).fill(0);
+        this.faderRandomModeActive = new Array(9).fill(false);
         this.sideButtonToggleState = new Array(8).fill(0);
         this.sideButtonRadioNum = 0;
         this.onMidiMessageCallback = this.handleMIDIMessage.bind(this);
@@ -45,7 +54,21 @@ export class APCMiniMK2Manager extends MIDIManager {
      * フレームごとの更新処理。MIDI出力をしないように変更しました。
      */
     public update(_index?: number): void {
-        // MIDI 出力は継承先で行うため、ここでは何もしない。
+        // フェーダーボタン押下中はランダムにフェーダー値を揺らす。
+        for (let i = 0; i < this.faderRandomModeActive.length; i++) {
+            if (this.faderRandomModeActive[i]) {
+                if (Math.random() < this.FADER_RANDOM_TRIGGER_PROB) {
+                    this.faderValues[i] = 1;
+                    continue;
+                }
+
+                if (Math.random() < this.FADER_RANDOM_TRIGGER_PROB) {
+                    this.faderValues[i] = 0;
+                }
+            } else {
+                this.faderValues[i] = this.faderValuesPrev[i];
+            }
+        }
     }
 
     /**
@@ -56,14 +79,18 @@ export class APCMiniMK2Manager extends MIDIManager {
         const velocity = data2;
 
         // フェーダーボタンの処理 (入力)
-        if (status === MIDI_STATUS.NOTE_ON && (
+        if ((status === MIDI_STATUS.NOTE_ON || status === MIDI_STATUS.NOTE_OFF) && (
             (data1 >= NOTE_RANGES.FADER_BUTTONS.START && data1 <= NOTE_RANGES.FADER_BUTTONS.END) ||
             data1 === NOTE_RANGES.FADER_BUTTON_8
         )) {
             const index = (data1 >= NOTE_RANGES.FADER_BUTTONS.START) ? data1 - NOTE_RANGES.FADER_BUTTONS.START : 8;
             if (velocity > 0) {
-                this.faderButtonToggleState[index] = 1 - this.faderButtonToggleState[index];
-                this.updateFaderValue(index);
+                this.faderRandomModeActive[index] = !this.faderRandomModeActive[index];
+                this.faderButtonToggleState[index] = this.faderRandomModeActive[index] ? 1 : 0;
+
+                if (!this.faderRandomModeActive[index]) {
+                    this.updateFaderValue(index);
+                }
             }
         }
 
@@ -87,7 +114,9 @@ export class APCMiniMK2Manager extends MIDIManager {
     }
 
     protected updateFaderValue(index: number): void {
-        this.faderValues[index] = this.faderButtonToggleState[index] ? 1 : this.faderValuesPrev[index];
+        if (!this.faderRandomModeActive[index]) {
+            this.faderValues[index] = this.faderValuesPrev[index];
+        }
     }
 
     /**
