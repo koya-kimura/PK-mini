@@ -110,6 +110,20 @@ export class BPMManager {
         return this.bpm;
     }
 
+    /**
+     * 現在の時点を beat=0 相当にリセットする。
+     * これにより getBeat() はこのメソッド呼び出し時点から 0 で始まり、
+     * その後の update()/経過時間で増加していきます。
+     */
+    public resetBeatToNow(): void {
+        this.beatCount = 0;
+        this.elapsed = 0;
+        this.lastUpdateTime = performance.now();
+        // 次フレーム以降の進行が自然になるように isBeatUpdated をクリア
+        this.isBeatUpdated = false;
+        console.log('BPMManager: beat reset to 0 at current time.');
+    }
+
     // --- タップテンポ機能 ---
 
     public tapTempo(): void {

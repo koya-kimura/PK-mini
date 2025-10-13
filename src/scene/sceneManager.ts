@@ -142,6 +142,13 @@ export class SceneManager {
         this.bpmManager.tapTempo();
     }
 
+    /**
+     * 現在時点を beat=0 としてリセットする（キーボード Shift 用）
+     */
+    resetBeat(): void {
+        this.bpmManager.resetBeatToNow();
+    }
+
     getBeat(): number {
         return this.bpmManager.getBeat();
     }

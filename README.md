@@ -92,6 +92,7 @@ npm run preview
 - `2`：`UI: Grid Overview`（8×8シーケンスの可視化）
 - `3`：`UI: Camera Frame`（カメラファインダー風のHUD）
 - `4`：`UI: sushi x p5js`（タイトルロゴ表示）
+ - `Shift`：押した時点を現在のbeat=0としてリセット（ライブ中に任意のタイミングでビートをオフセットできます）
 
 ### APC Mini MK2
 - **グリッド（8×8パッド）**：各ステップの行を選択。

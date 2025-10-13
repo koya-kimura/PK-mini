@@ -23,14 +23,15 @@ const sketch = (p: p5) => {
     // ポストプロセス用シェーダーを非同期で読み込む。
     postShader = await p.loadShader('./shader/post.vert', './shader/post.frag');
 
-    p.noCursor();
-
     // アニメーション全体を管理する SceneManager と
     // MIDI フィードバック表示用の UI オーバーレイを初期化。
     sceneManager = new SceneManager(p);
   }
 
   p.draw = () => {
+    // カーソルの非表示
+    p.noCursor();
+
     // 各シーンと MIDI 状態を更新し、描画用テクスチャを構築。
     sceneManager.update();
 
@@ -73,6 +74,16 @@ const sketch = (p: p5) => {
     if (p.keyCode === 32) {
       p.fullscreen(true);
     }
+
+  // p.keyTyped では修飾キーが届かない場合があるため、window の keydown を直接監視
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Shift') {
+      // Shift 押下時に、現在時点を beat=0 にリセット
+      if (sceneManager) {
+        sceneManager.resetBeat();
+      }
+    }
+  });
     if (p.key === 'Enter') {
       sceneManager.tapTempo();
     }
