@@ -17,7 +17,7 @@ import { CloudMotion } from './cloudMotion';
 import { SushiMotion } from './sushiMotion';
 import { ThunderMotion } from './thunderMotion';
 import { SushiTypographyMotion } from './sushiTypographyMotion';
-import { FlowTypographyMotion } from './flowTypographyMotion';
+import { TypographyMotion } from './typographyMotion';
 import { UIManager } from '../ui/UIManager';
 import { UI_None } from '../ui/UI_None';
 import { UI_StatusOverlay } from '../ui/visualSequenceOverlay';
@@ -37,8 +37,8 @@ export class SceneManager {
     // 現在のステップ（0-7）を保持
     private currentStep: number = 0;
     
-    // フェーダー8の前回の状態を保持（シーケンスクリア処理用）
-    private prevFader8Value: number = 0;
+    // フェーダー9（右端）の前回値を保持し、上限到達を検知する
+    private prevClearFaderValue: number = 0;
 
     private umbrellaMotion: UmbrellaMotion;
     private sunnyMotion: SunnyMotion;
@@ -47,7 +47,7 @@ export class SceneManager {
     private sushiMotion: SushiMotion;
     private thunderMotion: ThunderMotion;
     private sushiTypographyMotion: SushiTypographyMotion;
-    private flowTypographyMotion: FlowTypographyMotion;
+    private typographyMotion: TypographyMotion;
 
     constructor(p: p5) {
         // 描画先のグラフィクスバッファと、同期情報を扱うマネージャを初期化。
@@ -64,7 +64,7 @@ export class SceneManager {
         this.sushiMotion = new SushiMotion(p);
         this.thunderMotion = new ThunderMotion(p);
         this.sushiTypographyMotion = new SushiTypographyMotion(p);
-        this.flowTypographyMotion = new FlowTypographyMotion(p);
+        this.typographyMotion = new TypographyMotion(p);
 
         this.uiManager = new UIManager(this.midiSequencer, this.bpmManager);
         this.uiManager.setup(this.p, [
@@ -90,13 +90,13 @@ export class SceneManager {
         this.currentStep = this.p.floor(this.bpmManager.getBeat()) % 8;
         this.midiSequencer.update(this.currentStep);
 
-        // フェーダー8の監視とシーケンスクリア処理
-        const currentFader8Value = this.midiSequencer.getFaderValues()[8];
-        if (currentFader8Value >= 1 && this.prevFader8Value < 1) {
-            // フェーダー8が1になった瞬間に現在のパターンをクリア
+        // フェーダー9の監視とシーケンスクリア処理
+        const currentClearFaderValue = this.midiSequencer.getFaderValues()[8];
+        if (currentClearFaderValue >= 1 && this.prevClearFaderValue < 1) {
+            // フェーダー9が1になった瞬間に現在のパターンをクリア
             this.midiSequencer.clearCurrentPattern();
         }
-        this.prevFader8Value = currentFader8Value;
+        this.prevClearFaderValue = currentClearFaderValue;
 
         // 背景は常に不透明な黒を設定。
         this.drawTexture.background(0);
@@ -112,7 +112,7 @@ export class SceneManager {
         this.sushiMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(2, this.currentStep), this.bpmManager.getBeat());
         this.thunderMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(5, this.currentStep), this.bpmManager.getBeat());
         this.sushiTypographyMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(6, this.currentStep), this.bpmManager.getBeat());
-        this.flowTypographyMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(7, this.currentStep), this.bpmManager.getBeat());
+        this.typographyMotion.update(this.drawTexture, this.midiSequencer.getSequenceValue(7, this.currentStep), this.bpmManager.getBeat());
 
         // debug
         // this.sunnyMotion.update(this.drawTexture, this.p.floor(this.bpmManager.getBeat() / 4) % 8, this.bpmManager.getBeat());

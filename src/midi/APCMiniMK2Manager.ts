@@ -57,6 +57,7 @@ export class APCMiniMK2Manager extends MIDIManager {
         // フェーダーボタン押下中はランダムにフェーダー値を揺らす。
         for (let i = 0; i < this.faderRandomModeActive.length; i++) {
             if (this.faderRandomModeActive[i]) {
+                // 低確率で 1→0 を行き来させて、押し込み中のパルス感を演出する。
                 if (Math.random() < this.FADER_RANDOM_TRIGGER_PROB) {
                     this.faderValues[i] = 1;
                     continue;

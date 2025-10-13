@@ -41,14 +41,19 @@ const sketch = (p: p5) => {
     postShader.setUniform('u_tex', sceneManager.getDrawTexture());
     postShader.setUniform('u_uitex', sceneManager.getUITexture());
     postShader.setUniform('u_time', p.millis() / 1000.0);
-    postShader.setUniform("u_invert", sceneManager.midiSequencer.getFaderValues()[0]);
-    postShader.setUniform("u_mosaic", sceneManager.midiSequencer.getFaderValues()[1]);
-    postShader.setUniform("u_noise", sceneManager.midiSequencer.getFaderValues()[2]);
-    postShader.setUniform("u_tile", sceneManager.midiSequencer.getFaderValues()[3]);
-  postShader.setUniform("u_glitch", sceneManager.midiSequencer.getFaderValues()[4]);
-  postShader.setUniform("u_zoom", sceneManager.midiSequencer.getFaderValues()[5]);
-  postShader.setUniform("u_blockRotate", sceneManager.midiSequencer.getFaderValues()[6]);
-    postShader.setUniform("u_monochrome", sceneManager.midiSequencer.getFaderValues()[7]);
+
+  const faders = sceneManager.midiSequencer.getFaderValues();
+
+  // MIDI フェーダー -> ポストエフェクトの割り当て
+  postShader.setUniform('u_invert', faders[0]);          // フェーダー1: 白黒反転
+  postShader.setUniform('u_mosaic', faders[1]);          // フェーダー2: モザイク強度
+  postShader.setUniform('u_noise', faders[2]);           // フェーダー3: ノイズ揺らぎ
+  postShader.setUniform('u_tile', faders[3]);            // フェーダー4: タイル反復
+  postShader.setUniform('u_rgbSplit', faders[4]);        // フェーダー5: RGB 分離
+  postShader.setUniform('u_zoom', faders[5]);            // フェーダー6: ズームイン
+  postShader.setUniform('u_blockRotate', faders[6]);     // フェーダー7: ブロック回転
+  postShader.setUniform('u_monochrome', faders[7]);      // フェーダー8: モノクロ化
+  // フェーダー9 はシーケンスクリア専用。ポストエフェクトには割り当てない。
     p.rect(0, 0, p.width, p.height);
 
     // FPS表示

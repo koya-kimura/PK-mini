@@ -5,7 +5,7 @@ import type { BPMManager } from '../rhythm/BPMManager';
 import type { IUIOverlay, UIContext } from './IUIOverlay';
 
 export class UI_FoWxFlowOverlay implements IUIOverlay {
-  public readonly name = 'UI: FoW x Flow';
+  public readonly name = 'UI: sushi x p5js';
   private readonly primaryColor: p5.Color;
 
   constructor(p: p5) {
@@ -13,7 +13,7 @@ export class UI_FoWxFlowOverlay implements IUIOverlay {
   }
 
   /**
-   * FLOW × FoW のタイポを中央に配置するシンプルなオーバーレイ。
+   * sushi × p5js のタイポを中央に配置するシンプルなオーバーレイ。
    * 軽い点滅を入れて動きを感じさせる。
    */
   draw(
@@ -35,7 +35,7 @@ export class UI_FoWxFlowOverlay implements IUIOverlay {
     tex.fill(this.primaryColor);
     tex.noStroke();
 
-    const mainText = 'FoW x Flow';
+  const mainText = 'sushi x p5js';
     const mainSize = minDim * 0.22;
     tex.textSize(mainSize);
     const baseY = h * 0.36;

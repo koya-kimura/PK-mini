@@ -1,6 +1,6 @@
 // --------------------------------------------------------------
 // FlowTypographyMotion
-// 「FLOW」「FOW」の単語を全画面でモーションタイポに展開するシーン。
+// 「sushi」「p5js」の単語を全画面でモーションタイポに展開するシーン。
 // シーケンサーの行ごとに 7 つの演出パターンを切り替える。
 // --------------------------------------------------------------
 
@@ -33,9 +33,9 @@ interface ColorScheme {
 }
 
 // 表示に使う語彙セット。交互に配置してリズムを付ける。
-const WORDS = ['FLOW', 'FOW'];
+const WORDS = ['sushi', 'p5js'];
 
-export class FlowTypographyMotion {
+export class TypographyMotion {
     private readonly p: p5;
     private readonly allowedColors = ColorPalette.scenes.flowText.allowed;
     private currentScheme: ColorScheme;
@@ -111,7 +111,7 @@ export class FlowTypographyMotion {
 
         this.drawGradientBackground(tex, scheme.primary, scheme.shadow, 0.35);
 
-        this.drawWord(tex, 'FLOW', tex.width / 2, tex.height / 2, baseSize, {
+    this.drawWord(tex, 'sushi', tex.width / 2, tex.height / 2, baseSize, {
             angle: rotation,
             scale,
             style: {
@@ -126,7 +126,7 @@ export class FlowTypographyMotion {
             const echoScale = scale * (1 + i * 0.08);
             const alpha = 160 - i * 40;
             // 遅延したゴーストを重ねて脈動の余韻を演出。
-            this.drawWord(tex, 'FOW', tex.width / 2, tex.height / 2, baseSize, {
+            this.drawWord(tex, 'p5js', tex.width / 2, tex.height / 2, baseSize, {
                 angle: rotation + i * 0.03,
                 scale: echoScale,
                 style: {
@@ -192,7 +192,7 @@ export class FlowTypographyMotion {
         }
 
         const innerPulse = 0.5 + 0.5 * Easing.easeInOutSine(beatFrac);
-        this.drawWord(tex, 'FLOW', centerX, centerY, minDim * 0.4, {
+    this.drawWord(tex, 'sushi', centerX, centerY, minDim * 0.4, {
             scale: innerPulse,
             style: {
                 fill: scheme.secondary,
@@ -208,7 +208,7 @@ export class FlowTypographyMotion {
         const waveHeight = minDim * 0.08;
         const skew = Math.sin(beat * 0.6) * 0.25;
 
-        const words = ['FLOW', 'FOW'];
+    const words = ['sushi', 'p5js'];
         words.forEach((word, index) => {
             const direction = index === 0 ? 1 : -1;
             const y = tex.height / 2 + direction * minDim * 0.22;

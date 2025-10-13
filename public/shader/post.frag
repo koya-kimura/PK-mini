@@ -10,7 +10,7 @@ uniform float u_invert;
 uniform float u_mosaic;
 uniform float u_noise;
 uniform float u_tile;
-uniform float u_glitch;
+uniform float u_rgbSplit;
 uniform float u_monochrome;
 uniform float u_zoom;
 uniform float u_blockRotate;
@@ -19,22 +19,6 @@ float PI = 3.14159265358979;
 
 float random(vec2 st){
     return fract(sin(dot(st.xy,vec2(12.9898,78.233)))*43758.5453123);
-}
-
-mat2 rot(float angle){
-    return mat2(cos(angle),-sin(angle),sin(angle),cos(angle));
-}
-
-float atan2(float y,float x){
-    return x==0.?sign(y)*PI/2.:atan(y,x);
-}
-
-vec2 xy2pol(vec2 xy){
-    return vec2(atan2(xy.y,xy.x),length(xy));
-}
-
-vec2 pol2xy(vec2 pol){
-    return pol.y*vec2(cos(pol.x),sin(pol.x));
 }
 
 vec2 mosaic(vec2 uv, float n){
@@ -51,7 +35,9 @@ vec4 monochrome(vec4 col){
 void main(void) {
     vec2 uv = vTexCoord;
 
-    uv+=vec2(random(uv)*.1-.05)*(u_noise + 0.025);
+    // --- Noise jitter -----------------------------------------------------
+    // Subtle random wobble to keep the background lively.
+    uv += (vec2(random(uv) * 0.1 - 0.05)) * (u_noise + 0.025);
 
     // モザイク
     if(u_mosaic > 0.){
@@ -71,51 +57,55 @@ void main(void) {
 
     float blockRotateLevel = clamp(u_blockRotate, 0.0, 1.0);
     if(blockRotateLevel > 0.0){
+        // 画面を 16x9 ブロックに分割して、各ブロックを一斉に回転。
         vec2 gridSize = vec2(16.0, 9.0);
         vec2 blockIndex = floor(sampleUV * gridSize);
-        vec2 localCoord = fract(sampleUV * gridSize);
-        vec2 centered = localCoord - 0.5;
+        vec2 blockCoord = fract(sampleUV * gridSize);
+        vec2 centeredCoord = blockCoord - 0.5;
         float angle = blockRotateLevel * (PI * 0.5);
         float c = cos(angle);
         float s = sin(angle);
-        vec2 rotated = vec2(
-            centered.x * c - centered.y * s,
-            centered.x * s + centered.y * c
+        vec2 rotatedCoord = vec2(
+            centeredCoord.x * c - centeredCoord.y * s,
+            centeredCoord.x * s + centeredCoord.y * c
         );
-        vec2 newLocal = clamp(rotated + 0.5, 0.0, 1.0);
-        sampleUV = (blockIndex + newLocal) / gridSize;
+        vec2 clampedLocal = clamp(rotatedCoord + 0.5, 0.0, 1.0);
+        sampleUV = (blockIndex + clampedLocal) / gridSize;
         sampleUV = clamp(sampleUV, vec2(0.0), vec2(1.0));
     }
-    float glitchLevel = clamp(u_glitch, 0.0, 1.0);
-    float glitchFlag = 0.0;
-    float framePhase = floor(u_time * 60.0);
 
-    if(glitchLevel > 0.0){
-        // グリッチエフェクトは無効化。座標は変更しない。
+    vec4 renderColor = texture2D(u_tex, sampleUV);
+
+    // --- RGB split --------------------------------------------------------
+    float rgbSplitLevel = clamp(u_rgbSplit, 0.0, 1.0);
+    if(rgbSplitLevel > 0.0){
+        float splitAmount = mix(0.0, 0.03, rgbSplitLevel * rgbSplitLevel);
+        vec2 dynamicShift = vec2(
+            sin(u_time * 0.7) * splitAmount * 0.6,
+            cos(u_time * 0.9) * splitAmount * 0.4
+        );
+        vec2 splitOffset = vec2(splitAmount, splitAmount * 0.5);
+
+        vec3 splitColor;
+        splitColor.r = texture2D(u_tex, clamp(sampleUV + splitOffset + dynamicShift, 0.0, 1.0)).r;
+        splitColor.g = renderColor.g;
+        splitColor.b = texture2D(u_tex, clamp(sampleUV - splitOffset - dynamicShift, 0.0, 1.0)).b;
+        renderColor.rgb = mix(renderColor.rgb, splitColor, rgbSplitLevel);
     }
 
-    vec4 drawcol = texture2D(u_tex, sampleUV);
-
-    if(glitchFlag > 0.5){
-        float chromaAmount = (0.02 + 0.05 * glitchLevel);
-        vec3 shifted;
-        shifted.r = texture2D(u_tex, fract(sampleUV + vec2(chromaAmount, 0.0))).r;
-        shifted.g = drawcol.g;
-        shifted.b = texture2D(u_tex, fract(sampleUV - vec2(chromaAmount, 0.0))).b;
-        drawcol.rgb = mix(drawcol.rgb, shifted, 0.85);
+    // --- Inversion --------------------------------------------------------
+    if(u_invert >= 1.0){
+        renderColor.rgb = vec3(1.0) - renderColor.rgb;
     }
 
-    if(u_invert == 1.0){
-        drawcol.rgb = vec3(1.0) - drawcol.rgb;
-    }
-
-    if(u_monochrome == 1.0){
-        drawcol = monochrome(drawcol);
+    // --- Monochrome posterize --------------------------------------------
+    if(u_monochrome >= 1.0){
+        renderColor = monochrome(renderColor);
     }
 
     // UIオーバーレイ合成
-    vec4 uicol = texture2D(u_uitex, vTexCoord);
-    vec4 col = drawcol * (1.0 - uicol.a) + uicol * uicol.a;
+    vec4 uiColor = texture2D(u_uitex, vTexCoord);
+    vec4 composedColor = renderColor * (1.0 - uiColor.a) + uiColor * uiColor.a;
 
-    gl_FragColor = col;
+    gl_FragColor = composedColor;
 }
